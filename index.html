@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DINO Fortress</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a3a14;
+            touch-action: manipulation;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        #map {
+            background: #1a3a14;
+        }
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        .bottom-menu {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1f2937;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+        }
+        .menu-item {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .menu-item:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .menu-item.active {
+            color: #3b82f6;
+            transform: translateY(-5px);
+        }
+        .tooltip {
+            visibility: hidden;
+            width: 200px;
+            background-color: #374151;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 50;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+        }
+        .fortress {
+            background-color: #6b7280;
+            border: 4px solid #4b5563;
+            box-shadow:
+                0 0 0 4px #4b5563,
+                0 0 0 8px #374151,
+                0 0 20px rgba(0,0,0,0.5) inset;
+        }
+        .tower {
+            position: absolute;
+            width: 24px;
+            height: 36px;
+            background-color: #4b5563;
+            border: 2px solid #374151;
+            transform: translate(-50%, -50%);
+        }
+        .tower::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: repeating-linear-gradient(
+                90deg,
+                #374151,
+                #374151 4px,
+                transparent 4px,
+                transparent 8px
+            );
+        }
+        .house {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #78350f;
+            border-radius: 2px;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+        .tree {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 30px solid #0f4a1e;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+        .tree-trunk {
+            position: absolute;
+            width: 4px;
+            height: 10px;
+            background-color: #5a2c0e;
+            transform: translate(-50%, 10px);
+            z-index: 1;
+        }
+        .citizen {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #f3e8ff;
+            border-radius: 50%;
+            animation: citizenMove 6s ease-in-out infinite;
+            z-index: 10;
+        }
+        @keyframes citizenMove {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(10px, -5px); }
+            50% { transform: translate(0, 0); }
+            75% { transform: translate(-10px, 5px); }
+            100% { transform: translate(0, 0); }
+        }
+        .refugee {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #f3e8ff;
+            border-radius: 50%;
+            animation: refugeeRun 4s linear forwards;
+            z-index: 10;
+        }
+        .refugee::after {
+            content: attr(data-text);
+            position: absolute;
+            top: -15px;
+            left: -10px;
+            font-size: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 0 3px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+        @keyframes refugeeRun {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(var(--tx), var(--ty)); }
+        }
+        .firework {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            animation: fireworkExplode 1s forwards;
+            z-index: 20;
+        }
+        @keyframes fireworkExplode {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(10); opacity: 0; }
+        }
+        .smoke {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(128, 128, 128, 0.7);
+            border-radius: 50%;
+            animation: smokeRise 3s forwards;
+            z-index: 20;
+        }
+        @keyframes smokeRise {
+            0% { transform: translate(0, 0); opacity: 0.7; }
+            100% { transform: translate(0, -50px); opacity: 0; }
+        }
+        .fire {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, #ff4500, #ff8c00, transparent 70%);
+            border-radius: 50%;
+            animation: fireBurn 1s infinite alternate;
+            z-index: 20;
+        }
+        @keyframes fireBurn {
+            from { transform: scale(1); opacity: 0.8; }
+            to { transform: scale(1.3); opacity: 1; }
+        }
+        .panel {
+            position: fixed;
+            bottom: 70px;
+            left: 0;
+            right: 0;
+            background: rgba(31, 41, 55, 0.95);
+            border-radius: 15px 15px 0 0;
+            padding: 20px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 30;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .panel.active {
+            transform: translateY(0);
+        }
+        .close-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+        }
+        .gate {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 20px;
+            height: 30px;
+            background-color: #4b5563;
+            transform: translate(-50%, 0);
+            transition: height 1s ease;
+            z-index: 15;
+        }
+        .gate.open {
+            height: 0;
+        }
+        .fortress-wall {
+            position: absolute;
+            background-color: #4b5563;
+            border: 2px solid #374151;
+            z-index: 5;
+        }
+        .fortress-wall.top {
+            top: 0;
+            left: 20%;
+            right: 20%;
+            height: 10px;
+        }
+        .fortress-wall.bottom {
+            bottom: 0;
+            left: 20%;
+            right: 20%;
+            height: 10px;
+        }
+        .fortress-wall.left {
+            top: 10%;
+            bottom: 10%;
+            left: 0;
+            width: 10px;
+        }
+        .fortress-wall.right {
+            top: 10%;
+            bottom: 10%;
+            right: 0;
+            width: 10px;
+        }
+        .battlefield {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 5;
+        }
+        .troop {
+            width: 30px;
+            height: 45px;
+            position: absolute;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            z-index: 10;
+            transition: all 8s ease-in-out;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        .enemy-troop {
+            background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+            box-shadow: 0 0 15px #ff0000, inset 0 0 5px rgba(255,255,255,0.3);
+        }
+        .defender-troop {
+            background: linear-gradient(135deg, #4444ff 0%, #0000cc 100%);
+            box-shadow: 0 0 15px #0000ff, inset 0 0 5px rgba(255,255,255,0.3);
+        }
+        .troop-count {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            z-index: 11;
+        }
+        .swords {
+            position: absolute;
+            font-size: 40px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            filter: drop-shadow(0 0 5px gold);
+        }
+        .active-battle .swords {
+            opacity: 1;
+            animation: sword-clash 0.3s infinite;
+        }
+        @keyframes sword-clash {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            25% { transform: translate(-50%, -50%) rotate(30deg); }
+            75% { transform: translate(-50%, -50%) rotate(-30deg); }
+            100% { transform: translate(-50%, -50%) rotate(0deg); }
+        }
+        .health-bar {
+            width: 40px;
+            height: 5px;
+            background: rgba(0,0,0,0.3);
+            position: absolute;
+            bottom: -15px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .health-fill {
+            height: 100%;
+            width: 100%;
+            background: #00ff00;
+            transition: width 0.3s;
+        }
+        .caravan {
+            position: absolute;
+            width: 60px;
+            height: 30px;
+            background: #78350f;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            z-index: 10;
+            transition: all 10s linear;
+        }
+        .caravan::after {
+            content: '';
+            position: absolute;
+            width: 100px;
+            height: 5px;
+            background: linear-gradient(90deg, #78350f, transparent);
+            right: -100px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .stats-card {
+            background: rgba(31, 41, 55, 0.8);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+#caravansTab.active, #marketTab.active {
+    background-color: #4b5563;
+    color: #fff;
+}
+    </style>
+</head>
+<body class="text-white min-h-screen pb-16">
+    <div id="gameContainer" class="w-full h-full overflow-hidden">
+        <header class="flex justify-between items-center mb-4">
+            <div>
+                <h1 class="text-xl font-bold">DINO Fortress</h1>
+                <p class="text-sm text-gray-400">День: <span id="dayCounter">1</span></p>
+            </div>
+            <div class="flex gap-2">
+                <div class="bg-gray-800 px-2 py-1 rounded-lg text-sm">
+                    <span class="text-gray-400">💰:</span> <span id="fortressBalance" class="font-bold">10000</span>
+                </div>
+                <div class="bg-gray-800 px-2 py-1 rounded-lg text-sm">
+                    <span class="text-gray-400">🍞:</span> <span id="food" class="font-bold">500</span>
+                </div>
+                <div class="bg-gray-800 px-2 py-1 rounded-lg text-sm">
+                    <span class="text-gray-400">👥:</span> <span id="populationDisplay" class="font-bold">1000</span>
+                    <div class="text-xs text-center">
+                        <span class="text-gray-400">⚔️:</span> <span id="troopsDisplay" class="font-bold">50</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div id="map" class="relative rounded-lg overflow-hidden mb-4" style="height: 400px;">
+            <div id="battlefield" class="battlefield hidden"></div>
+            <div id="fortress" class="absolute w-40 h-40 fortress flex items-center justify-center font-bold" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                <div class="tower" style="top: 0%; left: 0%;"></div>
+                <div class="tower" style="top: 0%; left: 100%;"></div>
+                <div class="tower" style="top: 100%; left: 0%;"></div>
+                <div class="tower" style="top: 100%; left: 100%;"></div>
+                <div class="house" style="top: 15%; left: 15%;"></div>
+                <div class="house" style="top: 15%; left: 30%;"></div>
+                <div class="house" style="top: 15%; left: 70%;"></div>
+                <div class="house" style="top: 15%; left: 85%;"></div>
+                <div class="house" style="top: 30%; left: 15%;"></div>
+                <div class="house" style="top: 30%; left: 85%;"></div>
+                <div class="house" style="top: 50%; left: 30%;"></div>
+                <div class="house" style="top: 50%; left: 70%;"></div>
+                <div class="house" style="top: 70%; left: 15%;"></div>
+                <div class="house" style="top: 70%; left: 85%;"></div>
+                <div class="house" style="top: 85%; left: 15%;"></div>
+                <div class="house" style="top: 85%; left: 30%;"></div>
+                <div class="house" style="top: 85%; left: 70%;"></div>
+                <div class="house" style="top: 85%; left: 85%;"></div>
+                <div id="gate" class="gate"></div>
+                <div class="fortress-wall top"></div>
+                <div class="fortress-wall bottom"></div>
+                <div class="fortress-wall left"></div>
+                <div class="fortress-wall right"></div>
+            </div>
+        </div>
+
+        <div id="recruitPanel" class="panel">
+            <button class="close-panel" onclick="hidePanel('recruit')">×</button>
+            <h3 class="font-bold mb-4 text-lg">Набор войск</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm mb-2">Количество войск для найма (макс: <span id="maxRecruit">10</span>)</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="recruitAmount" class="bg-gray-700 rounded px-3 py-2 flex-1" value="10" min="1" max="10" oninput="updateRecruitCost()">
+                        <button onclick="recruitTroops()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded transition">Нанять</button>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Стоимость: <span id="recruitGoldCost">50</span> и <span id="recruitFoodCost">10</span> продовольствия за 1 войско</p>
+                    <p class="text-xs text-gray-400 mt-1">Общая стоимость: <span id="totalRecruitGoldCost">500</span> и <span id="totalRecruitFoodCost">100</span> продовольствия</p>
+                    <p id="recruitError" class="text-xs text-red-400 mt-1 hidden"></p>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-2">Текущие войска</h4>
+                    <p class="text-sm">Войска: <span id="troopsDisplayPanel">50</span>/<span id="barracksCapacity">50</span></p>
+                    <p class="text-sm">Население: <span id="populationDisplayPanel">1000</span></p>
+                    <p class="text-sm">Можно нанять: <span id="recruitPossible">200</span> войск (20 на 100 жителей)</p>
+                    <p class="text-sm text-gray-400">Улучшайте казармы в разделе "Развитие", чтобы увеличить вместимость войск! На 100 жителей можно нанять до 20 солдат.</p>
+                    <p class="text-sm">Продовольствие на армию: <span id="armyFoodConsumption">750</span>/день</p>
+                    <p class="text-sm">Продовольствие на население: <span id="populationFoodConsumption">237.5</span>/день</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="industryPanel" class="panel">
+    <button class="close-panel" onclick="hidePanel('industry')">×</button>
+    <h3 class="font-bold mb-4 text-lg">Развитие крепости</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="space-y-2">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span class="font-bold">Фермы (уровень <span id="farmLevel">1</span>)</span>
+            </div>
+            <p id="farmProgress" class="text-sm">+100 продовольствия/день, +30 населения/день</p>
+            <div class="w-full bg-gray-700 rounded-full h-2.5">
+                <div id="farmProgressBar" class="bg-green-500 h-2.5 rounded-full progress-bar" style="width: 0%"></div>
+            </div>
+            <button onclick="upgradeFarms()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded transition w-full">
+                Улучшить (<span id="farmCost">500</span>)
+            </button>
+        </div>
+        <div class="space-y-2">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                <span class="font-bold">Казармы (уровень <span id="barracksLevel">1</span>)</span>
+            </div>
+            <p id="barracksProgress" class="text-sm">Вместимость: 50 войск</p>
+            <div class="w-full bg-gray-700 rounded-full h-2.5">
+                <div id="barracksProgressBar" class="bg-red-500 h-2.5 rounded-full progress-bar" style="width: 0%"></div>
+            </div>
+            <button onclick="upgradeBarracks()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition w-full">
+                Улучшить (<span id="barracksCost">800</span>)
+            </button>
+        </div>
+        <div class="space-y-2">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                <span class="font-bold">Жилые кварталы (уровень <span id="houseLevel">1</span>)</span>
+            </div>
+            <p id="houseProgress" class="text-sm">+30 населения/день</p>
+            <div class="w-full bg-gray-700 rounded-full h-2.5">
+                <div id="houseProgressBar" class="bg-blue-500 h-2.5 rounded-full progress-bar" style="width: 0%"></div>
+            </div>
+            <button onclick="upgradeHouses()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded transition w-full">
+                Улучшить (<span id="houseCost">600</span>)
+            </button>
+        </div>
+        <div class="space-y-2">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                <span class="font-bold">Продовольствие</span>
+            </div>
+            <div class="flex gap-2">
+                <input type="number" id="buyFoodAmount" class="bg-gray-700 rounded px-3 py-2 flex-1" value="100" min="10" step="10">
+                <button onclick="buyFood()" class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded transition">
+                    Купить
+                </button>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">Цена: 2 за 1 продовольствие</p>
+            <p class="text-xs text-gray-400 mt-1">Общая стоимость: <span id="totalFoodCost">200</span></p>
+        </div>
+        <div class="space-y-2">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                <span class="font-bold">Продать продовольствие</span>
+            </div>
+            <div class="flex gap-2">
+                <input type="number" id="sellFoodAmount" class="bg-gray-700 rounded px-3 py-2 flex-1" value="100" min="10" step="10" oninput="updateSellFoodCost()">
+                <button onclick="sellFood()" class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded transition">
+                    Продать
+                </button>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">Цена: 1 за 1 продовольствие</p>
+            <p class="text-xs text-gray-400 mt-1">Общая выручка: <span id="totalSellFoodCost">100</span></p>
+        </div>
+    </div>
+</div>
+
+        <div id="battleSummaryModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+            <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full">
+                <h2 class="text-2xl font-bold mb-4 text-center">Итоги битвы</h2>
+                <p class="mb-2 text-center"><span id="battleResult"></span></p>
+                <p class="mb-2 text-center">Ваши потери: <span id="defenderLosses" class="font-bold">0</span> войск</p>
+                <p class="mb-4 text-center">Вражеские потери: <span id="enemyLosses" class="font-bold">0</span> войск</p>
+                <p class="mb-4 text-center text-sm text-gray-400">Дополнительно: <span id="battleRewards"></span></p>
+                <div class="flex justify-center">
+                    <button onclick="hideBattleSummaryModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded transition">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="starvationModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+            <div class="bg-gray-900 p-6 rounded-lg max-w-md w-full text-center">
+                <h2 class="text-2xl font-bold mb-4 text-red-500">☠️ Голод! ☠️</h2>
+                <p class="mb-4 text-xl"><span id="starvationPopulationLost">0</span> жителей умерло от голода!</p>
+                <p class="text-sm text-gray-400">Немедленно купите продовольствие или уменьшите армию</p>
+                <button onclick="document.getElementById('starvationModal').classList.add('hidden');"
+                    class="mt-4 bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition">
+                    Понятно
+                </button>
+            </div>
+        </div>
+
+        <div id="enemyWaveModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full">
+        <h2 class="text-2xl font-bold mb-4 text-center">Вызвать волну врагов</h2>
+        <p class="mb-2 text-center">Волна <span id="enemyWaveNumber">1</span></p>
+        <p class="mb-2 text-center">Количество врагов: <span id="enemyWaveCount">100</span></p>
+        <p class="mb-4 text-center text-sm text-gray-400">Увеличение следующей волны: <span id="nextWaveIncrease">100</span></p>
+        <div class="flex justify-center gap-4">
+            <button onclick="callEnemyWave()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition">Вызвать</button>
+            <button onclick="hideEnemyWaveModal()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded transition">Отмена</button>
+        </div>
+    </div>
+</div>
+        <div id="taxReportModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full">
+        <h2 class="text-2xl font-bold mb-4 text-center">Налоговый отчёт</h2>
+        <p class="mb-4 text-center">Собрано: <span id="taxAmount">0</span> дино</p>
+        <div class="flex justify-center gap-4">
+            <button onclick="hideTaxReportModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded transition">Закрыть</button>
+            <button onclick="disableTaxModal()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded transition">Больше не показывать</button>
+        </div>
+    </div>
+</div>
+
+        <div id="tradePanel" class="panel">
+    <button class="close-panel" onclick="hidePanel('trade')">×</button>
+    <h3 class="font-bold mb-4 text-lg">Торговый портал DINO</h3>
+    <div class="flex mb-4">
+        <button id="caravansTab" class="flex-1 bg-gray-700 py-2 rounded-l-lg text-sm font-bold" onclick="showTab('caravans')">Караваны</button>
+        <button id="marketTab" class="flex-1 bg-gray-600 py-2 rounded-r-lg text-sm" onclick="showTab('market')">Рынок</button>
+    </div>
+    <div id="caravansContent" class="tab-content">
+        <h4 class="font-bold mb-2">Караваны</h4>
+        <p class="text-sm text-gray-300 mb-4">Отправьте торговые караваны в другие города</p>
+        <div class="space-y-4">
+            <div class="bg-gray-700 p-3 rounded-lg">
+                <input type="number" id="caravanAmount" class="bg-gray-600 rounded px-3 py-2 w-full mb-2" placeholder="Введите сумму (100-500,000)" min="100" max="500000" oninput="updateCaravanInfo()">
+                <p class="text-xs text-gray-400 mb-2" id="caravanInfo"></p>
+                <button onclick="startCaravan()" class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded w-full text-sm">Отправить</button>
+            </div>
+            <div id="caravanList" class="space-y-2"></div>
+            <p class="text-xs text-gray-400 mt-4">Риски и награды:<br>
+                100–1000: 10% риск, 10% награда<br>
+                1000–10,000: 30% риск, 30% награда<br>
+                10,000–100,000: 50% риск, 40% награда<br>
+                100,000–500,000: 70% риск, 55% награда
+            </p>
+        </div>
+    </div>
+    <div id="marketContent" class="tab-content hidden">
+        <h4 class="font-bold mb-2">Рынок</h4>
+        <p class="text-sm text-gray-300 mb-4">Покупайте ресурсы у других игроков</p>
+        <div id="marketOffers" class="space-y-4"></div>
+    </div>
+</div>
+
+
+        <div id="statsPanel" class="panel">
+    <button class="close-panel" onclick="hidePanel('stats')">×</button>
+    <h3 class="font-bold mb-4 text-lg">Статистика крепости</h3>
+    <div class="stats-grid">
+        <div class="stats-card">
+            <h4 class="font-bold mb-2">💰 Финансы</h4>
+            <p class="text-sm">Баланс: <span id="statsBalance">10000</span></p>
+        </div>
+        <div class="stats-card">
+            <h4 class="font-bold mb-2">🍞 Продовольствие</h4>
+            <p class="text-sm">Текущие запасы: <span id="statsFood">500</span></p>
+            <p class="text-sm">Производство: <span id="statsFoodProduction">100</span>/день</p>
+            <p class="text-sm">Потребление: <span id="statsFoodConsumption">987.5</span>/день</p>
+        </div>
+        <div class="stats-card">
+            <h4 class="font-bold mb-2">👥 Население</h4>
+            <p class="text-sm">Всего жителей: <span id="statsPopulation">1000</span></p>
+            <p class="text-sm">Прирост: <span id="statsPopulationGrowth">60</span>/день</p>
+        </div>
+        <div class="stats-card">
+            <h4 class="font-bold mb-2">⚔️ Армия</h4>
+            <p class="text-sm">Войск: <span id="statsTroops">50</span>/50</p>
+            <p class="text-sm">Потребление: <span id="statsArmyConsumption">750</span>/день</p>
+            <p class="text-sm">Можно нанять: <span id="statsRecruitPossible">200</span></p>
+        </div>
+        <div class="stats-card col-span-2">
+            <h4 class="font-bold mb-2">📈 Эффективность</h4>
+            <p class="text-sm">Эффективность солдат: <span id="statsArmyEfficiency">110%</span> (базовый уровень)</p>
+            <p class="text-sm">Счастье жителей: <span id="statsHappiness">100%</span></p>
+        </div>
+    </div>
+</div>
+
+  <div class="bottom-menu flex justify-around py-2 z-40 text-xs">
+    <button onclick="showPanel('recruit')" class="menu-item flex flex-col items-center text-sm px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+            <path d="M12 2s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+        <span>Армия</span>
+    </button>
+    <button onclick="showPanel('industry')" class="menu-item flex flex-col items-center text-sm px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+            <path d="M3 3v18h18"></path>
+            <path d="M18 8V3"></path>
+            <path d="M8 3v5"></path>
+            <path d="M8 8v5"></path>
+            <path d="M13 3v5"></path>
+            <path d="M13 8v5"></path>
+        </svg>
+        <span>Развитие</span>
+    </button>
+
+      <button onclick="showEnemyWaveModal()" class="menu-item flex flex-col items-center text-sm px-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828l-4.95-4.95M14.828 9.172l-4.95 4.95M5.636 5.636L4.222 4.222m15.556 0l-1.414 1.414M4.222 19.778l1.414-1.414m15.556 0l-1.414 1.414M12 6v6m0 0l3-3m-3 3l-3-3"/>
+    </svg>
+    <span>Вызвать волну</span>
+</button>
+
+    <button onclick="showPanel('trade')" class="menu-item flex flex-col items-center text-sm px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+            <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <span>Торговля</span>
+    </button>
+    <button onclick="showPanel('stats')" class="menu-item flex flex-col items-center text-sm px-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+            <path d="M12 20V10"></path>
+            <path d="M18 20V4"></path>
+            <path d="M6 20v-4"></path>
+        </svg>
+        <span>Статистика</span>
+    </button>
+</div>
+
+    <script>
+
+        // Инициализация состояния игры
+        let gameState = {
+    balance: 10000,
+    food: 500,
+    troops: 50,
+    population: 1000,
+    day: 1,
+    farmLevel: 1,
+    barracksLevel: 1,
+    houseLevel: 1,
+    taxRate: 0.1,
+    happiness: 1.0,
+    showTaxModal: true, // Новая настройка
+    progress: {
+        farm: 0,
+        barracks: 0,
+        house: 0
+    },
+    inBattle: false,
+    enemyWave: 0,
+    victory: false,
+    activeCaravans: [],
+    battle: {
+        defenderHealth: 100,
+        enemyHealth: 100,
+        defenderInitial: 0,
+        enemyInitial: 0
+    }
+};
+
+        // Элементы DOM
+        // Элементы DOM
+const fortressBalance = document.getElementById('fortressBalance');
+const foodDisplay = document.getElementById('food');
+const troopsDisplay = document.getElementById('troopsDisplay');
+const populationDisplay = document.getElementById('populationDisplay');
+const dayCounter = document.getElementById('dayCounter');
+const map = document.getElementById('map');
+const fortress = document.getElementById('fortress');
+const gate = document.getElementById('gate');
+const maxRecruitDisplay = document.getElementById('maxRecruit');
+const recruitError = document.getElementById('recruitError');
+const battlefield = document.getElementById('battlefield');
+const battleSummaryModal = document.getElementById('battleSummaryModal');
+const battleResult = document.getElementById('battleResult');
+const defenderLosses = document.getElementById('defenderLosses');
+const enemyLosses = document.getElementById('enemyLosses');
+const battleRewards = document.getElementById('battleRewards');
+const recruitPossible = document.getElementById('recruitPossible');
+const tradeModal = document.getElementById('tradeModal');
+const farmCostDisplay = document.getElementById('farmCost');
+const barracksCostDisplay = document.getElementById('barracksCost');
+const houseCostDisplay = document.getElementById('houseCost');
+
+        // Автоматическое продвижение дней
+       let dayTimer;
+function startDayTimer() {
+    if (!dayTimer) {
+        dayTimer = setInterval(nextDay, 15000);
+        console.log("Day timer started"); // Для отладки
+    }
+}
+
+        // Загрузка состояния из localStorage
+        function loadGame() {
+            try {
+                const saved = localStorage.getItem('dinoSave');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    gameState = { ...gameState, ...parsed };
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки игры:', e);
+                showPopup('❌ Не могу загрузить данные!');
+            }
+        }
+
+        // Сохранение состояния в localStorage
+        function saveGame() {
+            try {
+                localStorage.setItem('dinoSave', JSON.stringify(gameState));
+            } catch (e) {
+                console.error('Ошибка сохранения игры:', e);
+                showPopup('❌ Не могу сохранить данные!');
+            }
+        }
+
+        // Обновление отображения баланса
+        function updateBalanceDisplay() {
+            if (fortressBalance) {
+                fortressBalance.textContent = gameState.balance.toLocaleString();
+            }
+        }
+
+        // Изменение баланса
+        function updateBalance(amount) {
+            if (amount < 0 && Math.abs(amount) > gameState.balance) {
+                showPopup('❌ Недостаточно средств!');
+                return false;
+            }
+            gameState.balance = Math.max(0, gameState.balance + amount);
+            updateBalanceDisplay();
+            updateStats();
+            saveGame();
+            return true;
+        }
+
+        // Инициализация игры
+        function initGame() {
+            loadGame();
+            updateBalanceDisplay();
+            updateResources();
+            updateIndustryLevels();
+            createForest();
+            createCitizens();
+            taxRateInput.addEventListener('input', () => {
+                gameState.taxRate = taxRateInput.value / 100;
+                gameState.happiness = Math.max(0.6, Math.min(1.4, 1.0 + (0.2 - gameState.taxRate) * 2));
+                updateIndustryLevels();
+                updateStats();
+            });
+            updateRecruitCost();
+            updateFoodCost();
+            updateStats();
+        }
+
+
+        // Показать панель
+        function showPanel(panelName) {
+            document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
+            document.getElementById(`${panelName}Panel`).classList.add('active');
+            if (panelName === 'recruit') {
+                updateRecruitInfo();
+            }
+            if (panelName === 'stats') {
+                updateStats();
+            }
+        }
+
+        // Скрыть панель
+        function hidePanel(panelName) {
+            document.getElementById(`${panelName}Panel`).classList.remove('active');
+        }
+
+        // Обновление статистики
+        function updateStats() {
+    document.getElementById('statsBalance').textContent = gameState.balance.toLocaleString();
+    document.getElementById('statsFood').textContent = gameState.food.toLocaleString();
+    document.getElementById('statsFoodProduction').textContent = (gameState.farmLevel * 200).toLocaleString();
+    document.getElementById('statsFoodConsumption').textContent = (gameState.troops * 5 + (gameState.population - gameState.troops) * 0.1).toFixed(1);
+    document.getElementById('statsPopulation').textContent = gameState.population.toLocaleString();
+    document.getElementById('statsPopulationGrowth').textContent = Math.floor((gameState.farmLevel * 30 + gameState.houseLevel * 30) * gameState.happiness).toLocaleString();
+    document.getElementById('statsTroops').textContent = gameState.troops.toLocaleString();
+    document.getElementById('statsArmyConsumption').textContent = (gameState.troops * 5).toLocaleString();
+    document.getElementById('statsRecruitPossible').textContent = Math.floor(gameState.population / 5).toLocaleString();
+    document.getElementById('statsArmyEfficiency').textContent = `${100 + (gameState.barracksLevel * 10)}%`;
+    document.getElementById('statsHappiness').textContent = `${Math.floor(gameState.happiness * 100)}%`;
+}
+
+        // Создание леса
+        function createForest() {
+            for (let i = 0; i < 100; i++) {
+                const tree = document.createElement('div');
+                tree.className = 'tree';
+                let x, y;
+                do {
+                    x = Math.random() * 100;
+                    y = Math.random() * 100;
+                } while (x > 20 && x < 80 && y > 20 && y < 80);
+                tree.style.left = `${x}%`;
+                tree.style.top = `${y}%`;
+                const trunk = document.createElement('div');
+                trunk.className = 'tree-trunk';
+                trunk.style.left = `${x}%`;
+                trunk.style.top = `${y}%`;
+                map.appendChild(tree);
+                map.appendChild(trunk);
+            }
+        }
+
+        // Создание жителей
+        function createCitizens() {
+            for (let i = 0; i < 20; i++) {
+                const citizen = document.createElement('div');
+                citizen.className = 'citizen';
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 10 + Math.random() * 15;
+                citizen.style.left = `${50 + Math.cos(angle) * radius}%`;
+                citizen.style.top = `${50 + Math.sin(angle) * radius}%`;
+                citizen.style.animationDelay = `${i * 0.5}s`;
+                fortress.appendChild(citizen);
+            }
+        }
+
+        // Создание фейерверков
+        function createFireworks() {
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    const firework = document.createElement('div');
+                    firework.className = 'firework';
+                    const colors = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff'];
+                    firework.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    firework.style.left = `${40 + Math.random() * 20}%`;
+                    firework.style.top = `${30 + Math.random() * 20}%`;
+                    map.appendChild(firework);
+                    setTimeout(() => firework.remove(), 1000);
+                }, i * 200);
+            }
+        }
+
+        // Рассчёт количества врагов
+        function calculateEnemyCount() {
+    let base = 100 * gameState.enemyWave;
+    if (gameState.enemyWave === 1) return 100; // Первая волна всегда 100 врагов
+    if (gameState.enemyWave % 5 === 0) base += 300;
+    if (gameState.enemyWave === 10) base += 600;
+    if (gameState.enemyWave === 15) base += 1200;
+    if (gameState.enemyWave > 15 && (gameState.enemyWave - 15) % 5 === 0) base += 600;
+    return base;
+}
+
+        // Рассчёт увеличения следующей волны
+        function calculateNextWaveIncrease() {
+            let increase = 100;
+            if ((gameState.enemyWave + 1) % 5 === 0) increase += 500;
+            if (gameState.enemyWave + 1 === 10) increase += 1000;
+            if (gameState.enemyWave + 1 === 15) increase += 2000;
+            if (gameState.enemyWave + 1 > 15 && ((gameState.enemyWave + 1) - 15) % 5 === 0) increase += 1000;
+            return increase;
+        }
+
+        // Показать модальное окно волны врагов
+        function showEnemyWaveModal() {
+    if (gameState.inBattle) {
+        showPopup("Уже идет битва!");
+        return;
+    }
+    const enemyCount = calculateEnemyCount();
+    const nextIncrease = calculateNextWaveIncrease();
+    document.getElementById('enemyWaveNumber').textContent = (gameState.enemyWave + 1).toLocaleString();
+    document.getElementById('enemyWaveCount').textContent = enemyCount.toLocaleString();
+    document.getElementById('nextWaveIncrease').textContent = nextIncrease.toLocaleString();
+    document.getElementById('enemyWaveModal').classList.remove('hidden');
+}
+
+        // Скрыть модальное окно волны врагов
+        function hideEnemyWaveModal() {
+            document.getElementById('enemyWaveModal').classList.add('hidden');
+        }
+
+        // Скрыть модальное окно итогов битвы
+        function hideBattleSummaryModal() {
+            battleSummaryModal.classList.add('hidden');
+        }
+
+        function hideTaxReportModal() {
+    document.getElementById('taxReportModal').classList.add('hidden');
+}
+       function hideTaxReportModal() {
+    document.getElementById('taxReportModal').classList.add('hidden');
+}
+
+function disableTaxModal() {
+    gameState.showTaxModal = false;
+    hideTaxReportModal();
+    saveGame();
+}
+
+        // Обновление стоимости найма
+        function updateRecruitCost() {
+            const amount = parseInt(document.getElementById('recruitAmount').value) || 0;
+            document.getElementById('totalRecruitGoldCost').textContent = amount * 50;
+            document.getElementById('totalRecruitFoodCost').textContent = amount * 5;
+            const foodNeeded = gameState.troops * 5 + (gameState.population - gameState.troops) * 0.1 + amount * 5;
+            const foodAvailable = gameState.food;
+            if (amount > 0 && foodNeeded > foodAvailable) {
+                recruitError.textContent = `Не хватит продовольствия! Нужно ${foodNeeded}, есть ${foodAvailable}`;
+                recruitError.classList.remove('hidden');
+            } else {
+                recruitError.classList.add('hidden');
+            }
+        }
+
+        // Обновление стоимости еды
+        function updateFoodCost() {
+            const amount = parseInt(document.getElementById('buyFoodAmount').value) || 0;
+            document.getElementById('totalFoodCost').textContent = amount * 2;
+        }
+
+        // Обновление информации о найме
+        function updateRecruitInfo() {
+            const maxRecruit = Math.floor(gameState.population / 5);
+            const maxPossible = Math.min(maxRecruit, gameState.barracksLevel * 50 - gameState.troops);
+            maxRecruitDisplay.textContent = maxPossible;
+            recruitPossible.textContent = maxRecruit;
+            document.getElementById('recruitAmount').max = maxPossible;
+            document.getElementById('recruitAmount').value = Math.min(parseInt(document.getElementById('recruitAmount').value) || 0, maxPossible);
+            updateRecruitCost();
+            updateStats();
+        }
+
+        // Нанять войска
+        function recruitTroops() {
+            const maxRecruit = Math.floor(gameState.population / 5);
+            const maxPossible = Math.min(maxRecruit, gameState.barracksLevel * 50 - gameState.troops);
+            let amount = parseInt(document.getElementById('recruitAmount').value) || 0;
+            amount = Math.max(1, Math.min(amount, maxPossible));
+            if (amount <= 0) {
+                showPopup("Нельзя нанять 0 или меньше войск!");
+                return;
+            }
+            const foodNeeded = gameState.troops * 5 + (gameState.population - gameState.troops) * 0.1 + amount * 5;
+            if (gameState.food < foodNeeded) {
+                showPopup(`Недостаточно продовольствия! Нужно ${foodNeeded}, есть ${gameState.food}`);
+                return;
+            }
+            const costBalance = amount * 50;
+            const costFood = amount * 5;
+            if (!updateBalance(-costBalance)) {
+                return;
+            }
+            if (gameState.population < amount) {
+                showPopup(`Недостаточно населения для найма ${amount} войск!`);
+                return;
+            }
+            gameState.food -= costFood;
+            gameState.troops += amount;
+            gameState.population -= amount;
+            updateResources();
+            hidePanel('recruit');
+            saveGame();
+        }
+
+        // Вызвать волну врагов
+        function callEnemyWave() {
+    if (gameState.inBattle) {
+        showPopup("Уже идет битва!");
+        return;
+    }
+    hideEnemyWaveModal();
+    gameState.enemyWave++;
+    const enemyCount = calculateEnemyCount();
+    spawnEnemies(enemyCount);
+}
+
+        // Создание врагов
+        // В функции spawnEnemies, заменить строку внутри defender.innerHTML
+function spawnEnemies(count) {
+    gameState.inBattle = true;
+    gameState.victory = false;
+    gameState.battle.defenderHealth = 100;
+    gameState.battle.enemyHealth = 100;
+    gameState.battle.defenderInitial = Math.min(gameState.troops, gameState.barracksLevel * 50);
+    gameState.battle.enemyInitial = count;
+    battlefield.innerHTML = '';
+    battlefield.classList.remove('hidden');
+    const enemyGroup = document.createElement('div');
+    enemyGroup.className = 'troop enemy-troop';
+    enemyGroup.id = 'enemyTroop';
+    enemyGroup.style.left = '90%';
+    enemyGroup.style.top = '10%';
+    const enemyCountDisplay = document.createElement('div');
+    enemyCountDisplay.className = 'troop-count';
+    enemyCountDisplay.textContent = count.toLocaleString();
+    enemyGroup.appendChild(enemyCountDisplay);
+    const enemy = document.createElement('div');
+    enemy.innerHTML = `<span style="font-family: 'Arial Black', sans-serif; font-size: 24px;">☠</span><div class="health-bar"><div id="enemyHealth" class="health-fill" style="width:100%"></div></div>`;
+    enemyGroup.appendChild(enemy);
+    battlefield.appendChild(enemyGroup);
+    const defenderCount = Math.min(gameState.troops, gameState.barracksLevel * 50);
+    setTimeout(() => {
+        enemyGroup.style.left = '70%';
+        enemyGroup.style.top = '30%';
+        if (defenderCount > 0) {
+            const defenderGroup = document.createElement('div');
+            defenderGroup.className = 'troop defender-troop';
+            defenderGroup.id = 'defenderTroop';
+            defenderGroup.style.left = '50%';
+            defenderGroup.style.top = '50%';
+            const defenderCountDisplay = document.createElement('div');
+            defenderCountDisplay.className = 'troop-count';
+            defenderCountDisplay.textContent = defenderCount.toLocaleString();
+            defenderGroup.appendChild(defenderCountDisplay);
+            const defender = document.createElement('div');
+            defender.innerHTML = `<span style="font-family: 'Arial Black', sans-serif; font-size: 24px;">D</span><div class="health-bar"><div id="defenderHealth" class="health-fill" style="width:100%"></div></div>`;
+            defenderGroup.appendChild(defender);
+            battlefield.appendChild(defenderGroup);
+            setTimeout(() => {
+                gate.classList.add('open');
+                defenderGroup.style.left = '65%';
+                defenderGroup.style.top = '35%';
+                const swords = document.createElement('div');
+                swords.className = 'swords';
+                swords.innerHTML = '⚔️';
+                swords.style.left = '67.5%';
+                swords.style.top = '32.5%';
+                battlefield.appendChild(swords);
+                setTimeout(() => {
+                    battlefield.classList.add('active-battle');
+                    startBattle(defenderCount, count);
+                }, 3000);
+            }, 1000);
+        } else {
+            setTimeout(() => {
+                endBattle(0, count);
+            }, 3000);
+        }
+    }, 2000);
+}
+
+        // Запуск битвы с анимацией и расчетом потерь
+        function startBattle(defenderCount, enemyCount) {
+    const defenderHealth = document.getElementById('defenderHealth');
+    const enemyHealth = document.getElementById('enemyHealth');
+    const defenderTroop = document.getElementById('defenderTroop');
+    const enemyTroop = document.getElementById('enemyTroop');
+
+    let defenderPower = defenderCount * (1 + gameState.barracksLevel * 0.1);
+    let enemyPower = enemyCount * 1.2; // Увеличение силы врагов для баланса
+
+    const battleInterval = setInterval(() => {
+        // Расчет урона
+        const defenderDamage = Math.random() * defenderPower * 0.05;
+        const enemyDamage = Math.random() * enemyPower * 0.06;
+
+        defenderPower -= enemyDamage;
+        enemyPower -= defenderDamage;
+
+        // Обновление здоровья
+        const defenderPercent = Math.max(0, Math.min(100, defenderPower / (defenderCount * (1 + gameState.barracksLevel * 0.1)) * 100));
+        const enemyPercent = Math.max(0, Math.min(100, enemyPower / enemyCount * 100));
+
+        defenderHealth.style.width = `${defenderPercent}%`;
+        enemyHealth.style.width = `${enemyPercent}%`;
+
+        // Обновление количества войск
+        const currentDefenders = Math.floor(defenderPower / (1 + gameState.barracksLevel * 0.1));
+        const currentEnemies = Math.floor(enemyPower / 1.2);
+
+        defenderTroop.querySelector('.troop-count').textContent = currentDefenders.toLocaleString();
+        enemyTroop.querySelector('.troop-count').textContent = currentEnemies.toLocaleString();
+
+        // Конец битвы
+        if (defenderPower <= 0 || enemyPower <= 0) {
+            clearInterval(battleInterval);
+            endBattle(Math.max(0, currentDefenders), Math.max(0, currentEnemies));
+        }
+    }, 300);
+}
+
+// Логика завершения битвы
+// Логика завершения битвы
+function endBattle(defenderCount, enemyCount) {
+    battlefield.classList.remove('active-battle');
+    gate.classList.remove('open');
+    let resultText = "";
+    let balanceEarned = 0;
+    let foodEarned = 0;
+    let troopsLost = gameState.battle.defenderInitial - defenderCount;
+    let enemyLost = gameState.battle.enemyInitial - enemyCount;
+    let populationLost = 0;
+    let balanceLost = 0;
+
+    const fortressBonus = 1 + (gameState.barracksLevel + gameState.farmLevel + gameState.houseLevel) * 0.05;
+    const defenderStrength = defenderCount * fortressBonus;
+    const enemyStrength = enemyCount * 1.2;
+
+    if (defenderCount === 0) {
+        populationLost = Math.floor(gameState.population * 0.3);
+        balanceLost = Math.floor(gameState.balance * 0.2);
+        resultText = `Враги захватили крепость!`;
+        gameState.population = Math.max(100, gameState.population - populationLost);
+        updateBalance(-balanceLost);
+    } else if (defenderStrength > enemyStrength * 1.2) {
+        gameState.victory = true;
+        const victoryRatio = (defenderStrength - enemyStrength) / defenderStrength;
+        balanceEarned = Math.floor(gameState.battle.enemyInitial * 890); // Увеличен приз
+        foodEarned = Math.floor(gameState.battle.enemyInitial * 3);
+        troopsLost = Math.floor(troopsLost * (1 - victoryRatio * 0.8));
+        enemyLost = gameState.battle.enemyInitial;
+        resultText = `Решительная победа!`;
+        createFireworks();
+    } else if (defenderStrength > enemyStrength) {
+        gameState.victory = true;
+        const victoryRatio = (defenderStrength - enemyStrength) / enemyStrength;
+        balanceEarned = Math.floor(gameState.battle.enemyInitial * 445); // Увеличен приз
+        foodEarned = Math.floor(gameState.battle.enemyInitial * 1.5);
+        troopsLost = Math.floor(troopsLost * (1 - victoryRatio * 0.5));
+        enemyLost = Math.floor(gameState.battle.enemyInitial * 0.9);
+        resultText = `Вы победили!`;
+        createFireworks();
+    } else {
+        const lossRatio = (enemyStrength - defenderStrength) / enemyStrength;
+        troopsLost = Math.floor(troopsLost * (1 + lossRatio * 0.2));
+        enemyLost = Math.floor(gameState.battle.enemyInitial * 0.6);
+        populationLost = Math.floor(gameState.population * 0.2);
+        balanceLost = Math.floor(gameState.balance * 0.1);
+        resultText = `Вы проиграли!`;
+        gameState.population = Math.max(100, gameState.population - populationLost);
+        updateBalance(-balanceLost);
+    }
+
+    // Иногда уменьшаем награду
+    if (gameState.victory && Math.random() < 0.3) {
+        balanceEarned = Math.floor(balanceEarned * 0.7); // 30% шанс уменьшить награду на 30%
+    }
+
+    gameState.troops = Math.max(0, gameState.troops - troopsLost);
+    updateBalance(balanceEarned);
+    gameState.food += foodEarned;
+    gameState.inBattle = false;
+    battleResult.textContent = resultText;
+    defenderLosses.textContent = troopsLost.toLocaleString();
+    enemyLosses.textContent = enemyLost.toLocaleString();
+
+    let rewardsText = "";
+    if (gameState.victory && defenderCount > 0) {
+        rewardsText = `Получено: ${balanceEarned.toLocaleString()} дино, ${foodEarned.toLocaleString()} продовольствия.`;
+    } else {
+        rewardsText = `Потеряно: ${populationLost.toLocaleString()} населения, ${balanceLost.toLocaleString()} дино.`;
+    }
+    battleRewards.textContent = rewardsText;
+    battleSummaryModal.classList.remove('hidden');
+    setTimeout(() => {
+        battlefield.innerHTML = '';
+        battlefield.classList.add('hidden');
+        updateResources();
+        saveGame();
+        restartDayTimer(); // Перезапускаем таймер после битвы
+    }, 2000);
+}
+        // Улучшение ферм
+       function upgradeFarms() {
+    const cost = Math.floor(500 * Math.pow(2, gameState.farmLevel - 1));
+    if (!updateBalance(-cost)) {
+        return;
+    }
+    gameState.progress.farm = 0;
+    document.getElementById('farmProgressBar').style.width = '0%';
+    const upgradeInterval = setInterval(() => {
+        gameState.progress.farm += 10;
+        document.getElementById('farmProgressBar').style.width = `${gameState.progress.farm}%`;
+        if (gameState.progress.farm >= 100) {
+            clearInterval(upgradeInterval);
+            gameState.farmLevel++;
+            updateIndustryLevels();
+            updateStats();
+            saveGame();
+        }
+    }, 100);
+}
+
+function upgradeBarracks() {
+    const cost = Math.floor(800 * Math.pow(2, gameState.barracksLevel - 1));
+    if (!updateBalance(-cost)) {
+        return;
+    }
+    gameState.progress.barracks = 0;
+    document.getElementById('barracksProgressBar').style.width = '0%';
+    const upgradeInterval = setInterval(() => {
+        gameState.progress.barracks += 10;
+        document.getElementById('barracksProgressBar').style.width = `${gameState.progress.barracks}%`;
+        if (gameState.progress.barracks >= 100) {
+            clearInterval(upgradeInterval);
+            gameState.barracksLevel++;
+            updateIndustryLevels();
+            updateStats();
+            saveGame();
+        }
+    }, 100);
+}
+
+function upgradeHouses() {
+    const cost = Math.floor(600 * Math.pow(2, gameState.houseLevel - 1));
+    if (!updateBalance(-cost)) {
+        return;
+    }
+    gameState.progress.house = 0;
+    document.getElementById('houseProgressBar').style.width = '0%';
+    const upgradeInterval = setInterval(() => {
+        gameState.progress.house += 10;
+        document.getElementById('houseProgressBar').style.width = `${gameState.progress.house}%`;
+        if (gameState.progress.house >= 100) {
+            clearInterval(upgradeInterval);
+            gameState.houseLevel++;
+            updateIndustryLevels();
+            updateStats();
+            saveGame();
+        }
+    }, 100);
+}
+        // Покупка еды
+        function buyFood() {
+            const amount = parseInt(document.getElementById('buyFoodAmount').value) || 0;
+            if (amount <= 0) {
+                showPopup("Нельзя купить 0 или меньше продовольствия!");
+                return;
+            }
+            const cost = amount * 2;
+            if (!updateBalance(-cost)) {
+                return;
+            }
+            gameState.food += amount;
+            updateResources();
+            updateFoodCost();
+            saveGame();
+        }
+
+        // Новый день
+        function nextDay() {
+            if (gameState.inBattle) {
+                showPopup("Нельзя закончить день во время битвы!");
+                return;
+            }
+            gameState.day++;
+
+            // Проверяем возвращение караванов
+            checkCaravans();
+
+            const mineIncome = gameState.mines > 0 ? 300 + (gameState.mines-1)*200 : 0;
+            updateBalance(mineIncome);
+
+            const populationGrowth = Math.floor((gameState.farmLevel * 30 + gameState.houseLevel * 30) * gameState.happiness);
+            gameState.population += populationGrowth;
+
+            // Увеличена производительность ферм
+            gameState.food += gameState.farmLevel * 200;
+
+            const foodConsumption = gameState.troops * 5 + (gameState.population - gameState.troops) * 0.1;
+            gameState.food = Math.max(0, gameState.food - foodConsumption);
+
+            if (gameState.food <= 0) {
+                const populationLost = Math.floor(gameState.population * 0.15);
+                gameState.population = Math.max(0, gameState.population - populationLost);
+                document.getElementById('starvationModal').classList.remove('hidden');
+                document.getElementById('starvationPopulationLost').textContent = populationLost;
+                gameState.food = 0;
+            }
+
+            updateResources();
+            updateIndustryLevels();
+            updateStats();
+            saveGame();
+        }
+
+        // Обновление ресурсов на интерфейсе
+        function updateResources() {
+            dayCounter.textContent = gameState.day;
+            foodDisplay.textContent = Math.floor(gameState.food);
+            troopsDisplay.textContent = gameState.troops;
+            populationDisplay.textContent = gameState.population;
+            document.getElementById('troopsDisplayPanel').textContent = gameState.troops;
+            document.getElementById('populationDisplayPanel').textContent = gameState.population;
+            document.getElementById('barracksCapacity').textContent = gameState.barracksLevel * 50;
+            document.getElementById('armyFoodConsumption').textContent = (gameState.troops * 5).toFixed(1);
+            document.getElementById('populationFoodConsumption').textContent = ((gameState.population - gameState.troops) * 0.1).toFixed(1);
+            updateBalanceDisplay();
+            updateRecruitInfo();
+            updateStats();
+        }
+
+        // Обновление уровней промышленности
+       function updateIndustryLevels() {
+    document.getElementById('farmLevel').textContent = gameState.farmLevel;
+    document.getElementById('barracksLevel').textContent = gameState.barracksLevel;
+    document.getElementById('houseLevel').textContent = gameState.houseLevel;
+    document.getElementById('farmProgress').textContent = `+${gameState.farmLevel * 200} продовольствия/день, +${gameState.farmLevel * 30} населения/день`;
+    document.getElementById('barracksProgress').textContent = `Вместимость: ${gameState.barracksLevel * 50} войск`;
+    document.getElementById('houseProgress').textContent = `+${gameState.houseLevel * 30} населения/день`;
+    document.getElementById('farmCost').textContent = Math.floor(500 * Math.pow(2, gameState.farmLevel - 1));
+    document.getElementById('barracksCost').textContent = Math.floor(800 * Math.pow(2, gameState.barracksLevel - 1));
+    document.getElementById('houseCost').textContent = Math.floor(600 * Math.pow(2, gameState.houseLevel - 1));
+}
+
+        // Показать всплывающее сообщение
+        function showPopup(message) {
+            const popup = document.createElement('div');
+            popup.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            popup.textContent = message;
+            document.body.appendChild(popup);
+            setTimeout(() => {
+                popup.style.transition = 'opacity 0.5s';
+                popup.style.opacity = '0';
+                setTimeout(() => popup.remove(), 500);
+            }, 3000);
+        }
+
+        // Инициализация игры при загрузке
+        document.addEventListener('DOMContentLoaded', initGame);
+        // Показать панель (заменить существующую функцию showPanel)
+function showPanel(panelName) {
+    document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
+    document.getElementById(`${panelName}Panel`).classList.add('active');
+    if (panelName === 'recruit') {
+        updateRecruitInfo();
+    }
+    if (panelName === 'stats') {
+        updateStats();
+    }
+    if (panelName === 'trade') {
+        showTab('caravans'); // Открываем вкладку "Караваны" по умолчанию
+    }
+}
+
+// Управление вкладками торговли
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('#tradePanel button[id$="Tab"]').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`${tabName}Content`).classList.add('active');
+    document.getElementById(`${tabName}Tab`).classList.add('active');
+    if (tabName === 'market') {
+        updateMarketOffers();
+    } else {
+        updateCaravanInfo();
+        updateCaravanList();
+    }
+}
+
+// Обновление информации о караване
+function updateCaravanInfo() {
+    const amount = parseInt(document.getElementById('caravanAmount').value) || 0;
+    let risk, reward, duration;
+    if (amount >= 100 && amount < 1000) {
+        risk = 0.1;
+        reward = amount * 0.1;
+        duration = 1 + Math.floor(Math.random() * 2);
+    } else if (amount < 10000) {
+        risk = 0.3;
+        reward = amount * 0.3;
+        duration = 3 + Math.floor(Math.random() * 3);
+    } else if (amount < 100000) {
+        risk = 0.5;
+        reward = amount * 0.4;
+        duration = 5 + Math.floor(Math.random() * 6);
+    } else if (amount <= 500000) {
+        risk = 0.7;
+        reward = amount * 0.55;
+        duration = 7 + Math.floor(Math.random() * 8);
+    } else {
+        document.getElementById('caravanInfo').textContent = 'Сумма должна быть от 100 до 500,000 дино!';
+        return;
+    }
+    document.getElementById('caravanInfo').textContent = `Риск: ${risk * 100}%, Награда: ${Math.floor(reward)} дино, Длительность: ${duration} дней`;
+}
+
+// Отправка каравана
+function startCaravan() {
+    const amount = parseInt(document.getElementById('caravanAmount').value) || 0;
+    if (amount < 100 || amount > 500000) {
+        showPopup('Сумма должна быть от 100 до 500,000 дино!');
+        return;
+    }
+    if (!updateBalance(-amount)) return;
+    let risk, reward, duration;
+    if (amount >= 100 && amount < 1000) {
+        risk = 0.1;
+        reward = amount * 0.1;
+        duration = 1 + Math.floor(Math.random() * 2);
+    } else if (amount < 10000) {
+        risk = 0.3;
+        reward = amount * 0.3;
+        duration = 3 + Math.floor(Math.random() * 3);
+    } else if (amount < 100000) {
+        risk = 0.5;
+        reward = amount * 0.4;
+        duration = 5 + Math.floor(Math.random() * 6);
+    } else {
+        risk = 0.7;
+        reward = amount * 0.55;
+        duration = 7 + Math.floor(Math.random() * 8);
+    }
+    const caravan = {
+        amount: amount,
+        startDay: gameState.day,
+        duration: duration,
+        risk: risk,
+        reward: Math.floor(reward),
+        status: 'traveling'
+    };
+    gameState.activeCaravans.push(caravan);
+    showPopup(`Караван за ${amount} дино отправлен! Вернется через ${duration} дней.`);
+    animateCaravan(caravan);
+    updateCaravanList();
+    saveGame();
+}
+
+// Обновление списка караванов
+function updateCaravanList() {
+    const caravanList = document.getElementById('caravanList');
+    caravanList.innerHTML = '';
+    gameState.activeCaravans.forEach(caravan => {
+        const div = document.createElement('div');
+        div.className = 'bg-gray-700 p-2 rounded-lg text-sm';
+        div.textContent = `Отправлен караван за ${caravan.amount} дино, вернется через ${caravan.duration - (gameState.day - caravan.startDay)} дней`;
+        caravanList.appendChild(div);
+    });
+}
+
+// Проверка караванов (заменить существующую функцию checkCaravans)
+function checkCaravans() {
+    const completedCaravans = [];
+    gameState.activeCaravans.forEach((caravan, index) => {
+        if (gameState.day - caravan.startDay >= caravan.duration) {
+            const success = Math.random() > caravan.risk;
+            if (success) {
+                updateBalance(caravan.reward);
+                showPopup(`Караван за ${caravan.amount} дино вернулся с ${caravan.reward} дино!`);
+            } else {
+                showPopup(`Караван за ${caravan.amount} дино разграблен!`);
+            }
+            completedCaravans.push(index);
+        }
+    });
+    completedCaravans.reverse().forEach(index => gameState.activeCaravans.splice(index, 1));
+    updateCaravanList();
+}
+
+// Генерация рыночных предложений
+let marketOffers = [];
+function generateMarketOffers() {
+    marketOffers = [];
+    const offerTypes = [
+        { type: 'food', basePrice: 2, minAmount: 100, maxAmount: 2000, priceVariation: 0.5 },
+        { type: 'troops', basePrice: 50, minAmount: 5, maxAmount: 50, priceVariation: 0.4 },
+        { type: 'population', basePrice: 20, minAmount: 10, maxAmount: 100, priceVariation: 0.3 }
+    ];
+    for (let i = 0; i < 50; i++) {
+        const type = offerTypes[Math.floor(Math.random() * offerTypes.length)];
+        const amount = Math.floor(type.minAmount + Math.random() * (type.maxAmount - type.minAmount));
+        const priceFactor = Math.random() < 0.3 ? 0.7 : 0.9 + Math.random() * 0.4; // 30% дешёвых, 70% средние/дорогие
+        const price = Math.floor(amount * type.basePrice * priceFactor);
+        marketOffers.push({ type: type.type, amount, price, daysLeft: 3 });
+    }
+}
+
+// Обновление рыночных предложений
+function updateMarketOffers() {
+    if (gameState.day % 3 === 0) generateMarketOffers();
+    const marketOffersDiv = document.getElementById('marketOffers');
+    marketOffersDiv.innerHTML = '';
+    marketOffers.forEach((offer, index) => {
+        const div = document.createElement('div');
+        div.className = 'bg-gray-700 p-3 rounded-lg flex justify-between items-center gap-2 hover:bg-gray-600 transition';
+        let typeText, icon;
+        if (offer.type === 'food') {
+            typeText = `${offer.amount} продовольствия`;
+            icon = `<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>`;
+        } else if (offer.type === 'troops') {
+            typeText = `${offer.amount} солдат`;
+            icon = `<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 12l6-6m-6 6L6 6m6 6v6m-6-6h12"></path></svg>`;
+        } else {
+            typeText = `${offer.amount} жителей`;
+            icon = `<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`;
+        }
+        div.innerHTML = `
+            <div class="flex items-center gap-2">
+                ${icon}
+                <p class="text-sm">${typeText}</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <p class="text-sm font-bold">${offer.price} дино</p>
+                <button class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs" onclick="buyMarketOffer(${index})">Купить</button>
+            </div>
+            <p class="text-xs text-gray-400 absolute bottom-1 right-3">Осталось ${offer.daysLeft} дней</p>
+        `;
+        marketOffersDiv.appendChild(div);
+    });
+}
+
+// Покупка рыночного предложения
+function buyMarketOffer(index) {
+    const offer = marketOffers[index];
+    if (!updateBalance(-offer.price)) return;
+    if (offer.type === 'food') {
+        gameState.food += offer.amount;
+    } else if (offer.type === 'troops') {
+        if (gameState.troops + offer.amount > gameState.barracksLevel * 50) {
+            showPopup('Недостаточно места в казармах!');
+            updateBalance(offer.price); // Возврат средств
+            return;
+        }
+        gameState.troops += offer.amount;
+        gameState.population -= offer.amount;
+    } else if (offer.type === 'population') {
+        gameState.population += offer.amount;
+    }
+    marketOffers.splice(index, 1);
+    updateMarketOffers();
+    updateResources();
+    saveGame();
+    showPopup(`Куплено: ${offer.amount} ${offer.type === 'food' ? 'продовольствия' : offer.type === 'troops' ? 'солдат' : 'жителей'}!`);
+}
+
+// Обновление функции nextDay для рыночных предложений (заменить существующую)
+function nextDay() {
+    if (gameState.inBattle) {
+        showPopup("Нельзя закончить день во время битвы!");
+        return;
+    }
+    console.log("nextDay called, current day:", gameState.day); // Для отладки
+
+    gameState.day++;
+
+    // Проверяем возвращение караванов
+    checkCaravans();
+
+    // Сбор налогов
+    const taxPerCitizen = 5; // Изменено с 0.5 на 5
+    const taxCollected = Math.floor(gameState.population * taxPerCitizen);
+    updateBalance(taxCollected);
+
+    // Показ модального окна с отчётом, если не отключено
+    if (gameState.showTaxModal) {
+        document.getElementById('taxAmount').textContent = taxCollected.toLocaleString();
+        document.getElementById('taxReportModal').classList.remove('hidden');
+    }
+
+    const mineIncome = gameState.mines > 0 ? 300 + (gameState.mines - 1) * 200 : 0;
+    updateBalance(mineIncome);
+
+    const populationGrowth = Math.floor((gameState.farmLevel * 30 + gameState.houseLevel * 30) * gameState.happiness);
+    gameState.population += populationGrowth;
+
+    // Производство продовольствия
+    gameState.food += gameState.farmLevel * 200;
+
+    const foodConsumption = gameState.troops * 5 + (gameState.population - gameState.troops) * 0.1;
+    gameState.food = Math.max(0, gameState.food - foodConsumption);
+
+    if (gameState.food <= 0) {
+        const populationLost = Math.floor(gameState.population * 0.15);
+        gameState.population = Math.max(0, gameState.population - populationLost);
+        document.getElementById('starvationModal').classList.remove('hidden');
+        document.getElementById('starvationPopulationLost').textContent = populationLost;
+        gameState.food = 0;
+    }
+
+    marketOffers.forEach(offer => offer.daysLeft--);
+    marketOffers = marketOffers.filter(offer => offer.daysLeft > 0);
+    updateMarketOffers();
+    updateResources();
+    updateIndustryLevels();
+    updateStats();
+    saveGame();
+}
+
+// Обновление initGame для инициализации торговли (заменить существующую)
+function initGame() {
+    loadGame();
+    updateBalanceDisplay();
+    updateResources();
+    updateIndustryLevels();
+    createForest();
+    createCitizens();
+    updateRecruitCost();
+    updateFoodCost();
+    updateSellFoodCost();
+    updateStats();
+    generateMarketOffers();
+    updateCaravanList();
+    startDayTimer(); // Запускаем таймер
+}
+
+        function updateSellFoodCost() {
+    const amount = parseInt(document.getElementById('sellFoodAmount').value) || 0;
+    document.getElementById('totalSellFoodCost').textContent = amount;
+}
+
+function sellFood() {
+    const amount = parseInt(document.getElementById('sellFoodAmount').value) || 0;
+    if (amount <= 0) {
+        showPopup("Нельзя продать 0 или меньше продовольствия!");
+        return;
+    }
+    if (gameState.food < amount) {
+        showPopup("Недостаточно продовольствия для продажи!");
+        return;
+    }
+    const revenue = amount;
+    gameState.food -= amount;
+    updateBalance(revenue);
+    updateResources();
+    updateSellFoodCost();
+    saveGame();
+}
+    </script>
+</body>
+</html>
