@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -790,10 +789,14 @@ function startDayTimer() {
 
         // Обновление отображения баланса
         function updateBalanceDisplay() {
-            if (fortressBalance) {
-                fortressBalance.textContent = gameState.balance.toLocaleString();
-            }
+    if (fortressBalance) {
+        if (gameState.balance >= 10000) {
+            fortressBalance.textContent = (gameState.balance / 1000).toFixed(1) + 'K';
+        } else {
+            fortressBalance.textContent = gameState.balance.toLocaleString();
         }
+    }
+}
 
         // Изменение баланса
         function updateBalance(amount) {
@@ -847,7 +850,7 @@ function startDayTimer() {
 
         // Обновление статистики
         function updateStats() {
-    document.getElementById('statsBalance').textContent = gameState.balance.toLocaleString();
+    document.getElementById('statsBalance').textContent = gameState.balance >= 10000 ? (gameState.balance / 1000).toFixed(1) + 'K' : gameState.balance.toLocaleString();
     document.getElementById('statsFood').textContent = gameState.food.toLocaleString();
     document.getElementById('statsFoodProduction').textContent = (gameState.farmLevel * 200).toLocaleString();
     document.getElementById('statsFoodConsumption').textContent = (gameState.troops * 5 + (gameState.population - gameState.troops) * 0.1).toFixed(1);
@@ -1608,7 +1611,7 @@ function nextDay() {
     checkCaravans();
 
     // Сбор налогов
-    const taxPerCitizen = 5; // Изменено с 0.5 на 5
+    const taxPerCitizen = 2.5; // Изменено на 2.5
     const taxCollected = Math.floor(gameState.population * taxPerCitizen);
     updateBalance(taxCollected);
 
@@ -1689,3 +1692,4 @@ function sellFood() {
     </script>
 </body>
 </html>
+
